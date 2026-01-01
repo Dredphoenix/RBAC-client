@@ -1,5 +1,6 @@
 import { createSlice,createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../api/axios";
+import { jwtDecode } from "jwt-decode";
 
 export const loginUser =createAsyncThunk(
  
@@ -7,7 +8,7 @@ export const loginUser =createAsyncThunk(
     async({email,password},thunkAPI)=>{
 
         try{
-            const res= await api.post("users/login",{email,password});
+            const res= await api.post("user/login",{email,password});
             return res.data;
         }catch(error){
             return thunkAPI.rejectWithValue(
@@ -20,21 +21,35 @@ export const loginUser =createAsyncThunk(
 
 //Auth Slice
 
+const tokenfromstorage=localStorage.getItem("token");
+
+let user=null;
+if(tokenfromstorage){
+    try{
+        const decoded=jwtDecode(tokenfromstorage);
+        user={id:decoded.id,role:decoded.role};
+    }catch{
+         localStorage.removeItem("token");
+    }
+}
+
+
 const authSlice = createSlice({
 
     name:"auth",
     initialState:{
-        user:JSON.parse(localStorage.getItem("user")) || null,
-        token:localStorage.getItem("token") || null,
+        token:tokenfromstorage || null,
+        user:user,
+        isAuthenticated:!!user,
         loading:false,
         error:null,
     },
   reducers:{
     logout(state){
-        state.user=null;
-        state.token=null;
-        localStorage.removeItem("user");
-        localStorage.removeItem("token");
+       state.token = null;
+       state.user = null;
+       state.isAuthenticated = false;
+       localStorage.removeItem("token");
     },
   },
   extraReducers:(builder)=>{
@@ -43,10 +58,12 @@ const authSlice = createSlice({
         state.error=null;
     }).addCase(loginUser.fulfilled,(state,action)=>{
         state.loading=false;
-        state.user=action.payload.user;
-        state.token=action.payload.token;
-        localStorage.setItem("user",JSON.stringify(action.payload.user));
-        localStorage.setItem("token",action.payload.token)
+        const token=action.payload.token;
+        const decoded= jwtDecode(token);
+        state.token=token;
+        state.user={id:decoded.id,role:decoded.role};
+        state.isAuthenticated=true;
+        localStorage.setItem("token",token);
     }).addCase(loginUser.rejected,(state,action)=>{
         state.loading=false;
         state.error=action.payload;
@@ -56,3 +73,4 @@ const authSlice = createSlice({
 
 export const {logout} =authSlice.actions;
 export default authSlice.reducer;
+

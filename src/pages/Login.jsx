@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { loginUser } from "../features/auth/authSlice";
 import { useNavigate } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -16,7 +17,12 @@ export default function Login() {
     e.preventDefault();
     dispatch(loginUser({ email, password })).then((res) => {
       if (res.meta.requestStatus === "fulfilled") {
-        navigate("/dashboard");
+        const decoded = jwtDecode(res.payload.token);
+        if (decoded.role === "admin") {
+          navigate("/admin/users");
+        } else {
+          navigate("/dashboard");
+        }
       }
     });
   };
